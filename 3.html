@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP | Управление браком</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body { margin: 0; font-family: 'Inter', sans-serif; background: #f4f6f9; color: #2c3e50; }
+.sidebar { width: 270px; height: 100vh; background: #111827; position: fixed; color: white; padding: 20px; overflow-y: auto; }
+.sidebar h2 { font-size: 18px; margin-bottom: 20px; }
+.sidebar li { list-style: none; padding: 10px 8px; cursor: pointer; border-radius: 6px; }
+.sidebar li:hover { background: #1f2937; }
+.main { margin-left: 290px; padding: 30px; }
+.page { display: none; }
+.page.active { display: block; }
+.card { background: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(250px, 1fr)); gap: 18px; }
+input, select, textarea { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #d1d5db; box-sizing: border-box; }
+textarea { min-height: 85px; resize: vertical; }
+button { padding: 10px 16px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; font-weight: 600; margin-right: 8px; }
+button.secondary { background: #6b7280; }
+button.danger { background: #dc2626; }
+button.success { background: #059669; }
+.status { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+.status.new { background: #e0f2fe; color: #0369a1; }
+.status.registration { background: #e5e7eb; color: #374151; }
+.status.approval { background: #fef9c3; color: #92400e; }
+.status.confirmed { background: #dcfce7; color: #166534; }
+.status.closed { background: #ede9fe; color: #5b21b6; }
+.status.rework { background: #fee2e2; color: #991b1b; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
+th { background: #f9fafb; }
+small.helper { color: #6b7280; display: block; margin-top: 4px; }
+.tags span { display:inline-block; background:#eef2ff; color:#3730a3; padding:4px 8px; border-radius:14px; margin:2px; font-size:12px; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 10; }
+.modal.show { display: flex; }
+.modal-content { background:white; padding:24px; border-radius:12px; width:460px; max-width: 95vw; }
+.activity-log { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; font-size:14px; max-height:180px; overflow:auto; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>Система качества</h2>
+    <ul>
+        <li onclick="showPage('dashboard')">Дашборд</li>
+        <li onclick="showPage('documents')">Документы</li>
+        <li onclick="showPage('createDoc')">Создать «Брак продукции»</li>
+        <li onclick="showPage('directories')">Справочники</li>
+        <li onclick="showPage('registers')">Регистры</li>
+        <li onclick="showPage('dmnSettings')">Правила DMN</li>
+        <li onclick="showPage('processMap')">TO-BE процесс</li>
+    </ul>
+</div>
+
+<div class="main">
+<div id="dashboard" class="page active">
+    <h1>Аналитика брака</h1>
+    <div class="card"><canvas id="defectChart"></canvas></div>
+</div>
+
+<div id="documents" class="page">
+    <h1>Документы процесса</h1>
+    <div class="card">
+        <table>
+            <tr><th>Документ</th><th>Назначение</th><th>Статус / пример</th></tr>
+            <tr><td>Брак продукции</td><td>Фиксация дефекта, DMN-решение, маршрут обработки</td><td>BRK-001 / Подтвержден</td></tr>
+            <tr><td>Заявка на согласование</td><td>Запускается при критичности, нестандартном кейсе или превышении лимита</td><td>APR-014 / На согласовании</td></tr>
+            <tr><td>Регистрация затрат на исправление брака</td><td>Плановые и фактические расходы по материалам и работам</td><td>CST-088 / Проведен</td></tr>
+            <tr><td>Отчёт о браке</td><td>Итог для руководства и финансового отдела</td><td>RPT-032 / Сформирован</td></tr>
+        </table>
+    </div>
+</div>
+
+<div id="createDoc" class="page">
+    <h1>Документ «Брак продукции»</h1>
+    <p>
+      № <b id="docNumber">BRK-2026-001</b> ·
+      выявлено: <b id="detectedAt"></b> ·
+      <span class="status registration" id="statusBadge">К регистрации</span>
+    </p>
+
+    <div class="card">
+        <div class="grid">
+            <div><label>Сотрудник (Контролёр ОТК)</label><select id="employeeSelect"></select></div>
+            <div><label>Подразделение</label><select id="departmentSelect"></select></div>
+            <div><label>Продукция / Номенклатура</label><select id="productSelect"></select></div>
+            <div><label>Тип брака</label><select id="typeSelect"></select></div>
+            <div><label>Критичность</label><select id="criticalSelect"></select></div>
+            <div><label>Гарантийный случай</label><select id="warrantySelect"><option>Нет</option><option>Да</option></select></div>
+            <div><label>Плановые затраты (₽)</label><input type="number" id="costInput" value="15000"></div>
+            <div><label>Ответственный за согласование</label><select id="approverSelect"></select></div>
+        </div>
+
+        <div style="margin-top:14px;">
+            <label>Описание дефекта</label>
+            <textarea id="defectDescription" placeholder="Опишите характер брака"></textarea>
+        </div>
+        <div style="margin-top:14px;">
+            <label>Комментарии контролёра</label>
+            <textarea id="controllerComment" placeholder="Дополнительные заметки"></textarea>
+        </div>
+        <div style="margin-top:14px;">
+            <label>Фотографии дефекта (имитация вложений)</label>
+            <input type="file" id="defectPhotos" multiple>
+            <small class="helper">В прототипе сохраняются только имена файлов.</small>
+            <div class="tags" id="photoNames"></div>
+        </div>
+
+        <br>
+        <button onclick="runDMN()">Провести документ и рассчитать DMN</button>
+        <button onclick="openApproval()" class="secondary">Открыть согласование</button>
+        <button onclick="registerActualCosts()" class="success">Зафиксировать факт. затраты</button>
+        <button onclick="closeProcess()" class="secondary">Закрыть документ</button>
+
+        <br><br>
+        <p><b>Предложенный способ обработки:</b> <span id="methodResult">—</span></p>
+        <p><b>Требуется согласование:</b> <span id="approvalResult">—</span></p>
+        <p><b>Автосозданные документы:</b> <span id="autoDocs">—</span></p>
+    </div>
+
+    <div class="card">
+      <h3>Журнал процесса</h3>
+      <div class="activity-log" id="activityLog"></div>
+    </div>
+</div>
+
+<div id="directories" class="page">
+    <h1>Справочники</h1>
+    <div class="card">
+      <table>
+        <tr><th>Справочник</th><th>Примеры элементов</th></tr>
+        <tr><td>Сотрудники</td><td>Иванов И.И. (ОТК), Петров П.П. (начальник цеха), Сидорова А.А. (финансы)</td></tr>
+        <tr><td>Номенклатура продукции</td><td>Вал приводной А-100, Корпус редуктора B-22, Партия #451</td></tr>
+        <tr><td>Типы брака</td><td>Внутренний, Внешний, Критический, Гарантийный</td></tr>
+        <tr><td>Критичность брака</td><td>Низкая, Средняя, Высокая</td></tr>
+        <tr><td>Методы обработки</td><td>Исправление, Доработка, Утилизация, Исправление поставщиком</td></tr>
+        <tr><td>Подразделения</td><td>Цех №1, ОТК, Финансовый отдел, Технологический отдел</td></tr>
+        <tr><td>Поставщики</td><td>ООО «Металл-Снаб», АО «ПромДеталь»</td></tr>
+      </table>
+    </div>
+</div>
+
+<div id="registers" class="page">
+    <h1>Регистры сведений / накопления</h1>
+    <div class="card">
+      <p><b>Лимиты согласования:</b> до 30 000 ₽ — без согласования, выше — требуется согласование.</p>
+      <p><b>История брака:</b> хранит тип, критичность, обработку и итог согласования.</p>
+      <p><b>Правила DMN:</b> определяют метод обработки по параметрам документа.</p>
+      <p><b>Плановые и фактические затраты:</b> сравнение бюджета и факта.</p>
+      <p><b>Исправления и списания (накопление):</b> учёт объёма исправленной/списанной продукции.</p>
+    </div>
+</div>
+
+<div id="dmnSettings" class="page">
+    <h1>Матрица DMN</h1>
+    <div class="card">
+        <table>
+            <tr><th>Условие</th><th>Решение</th><th>Согласование</th></tr>
+            <tr><td>Гарантийный случай = Да</td><td>Исправление поставщиком / Возврат</td><td>По лимиту затрат</td></tr>
+            <tr><td>Тип = Критический или Критичность = Высокая</td><td>Утилизация</td><td>Обязательно</td></tr>
+            <tr><td>Тип = Внутренний</td><td>Доработка</td><td>По лимиту</td></tr>
+            <tr><td>Иначе</td><td>Исправление</td><td>По лимиту</td></tr>
+        </table>
+    </div>
+</div>
+
+<div id="processMap" class="page">
+  <h1>TO-BE процесс</h1>
+  <div class="card">
+    <ol>
+      <li>Регистрация брака контролёром ОТК (статус «К регистрации»).</li>
+      <li>Проведение документа и запуск DMN-проверок.</li>
+      <li>Ветвление: без согласования → исполнение; с согласованием → бизнес-процесс согласования.</li>
+      <li>Фиксация фактических затрат исполнителем.</li>
+      <li>Закрытие документа, формирование отчётов и аналитики.</li>
+    </ol>
+  </div>
+</div>
+</div>
+
+<div id="approvalModal" class="modal">
+  <div class="modal-content">
+    <h3>Согласование решения</h3>
+    <p id="approvalContext">Проверьте параметры документа и примите решение.</p>
+    <button onclick="approve()">Утвердить</button>
+    <button onclick="reject()" class="danger">Отклонить</button>
+  </div>
+</div>
+
+<script>
+const employees = ['Иванов И.И. (ОТК)', 'Петров П.П. (Начальник цеха)', 'Сидорова А.А. (Финансы)', 'Кузнецов В.В. (Технолог)'];
+const departments = ['Цех №1', 'Цех №2', 'ОТК', 'Финансовый отдел', 'Технологический отдел'];
+const products = ['Вал приводной А-100 (партия 451)', 'Корпус редуктора B-22 (партия 991)', 'Шестерня C-12 (партия 117)'];
+const defectTypes = ['Внутренний', 'Внешний', 'Критический', 'Гарантийный'];
+
+function fillSelect(id, values){
+  const s = document.getElementById(id);
+  s.innerHTML = values.map(v => `<option>${v}</option>`).join('');
+}
+
+fillSelect('employeeSelect', employees);
+fillSelect('departmentSelect', departments);
+fillSelect('productSelect', products);
+fillSelect('typeSelect', defectTypes);
+fillSelect('criticalSelect', ['Низкая', 'Средняя', 'Высокая']);
+fillSelect('approverSelect', ['Не назначен', 'Петров П.П. (Начальник цеха)', 'Кузнецов В.В. (Технолог)', 'Сидорова А.А. (Финансы)']);
+
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function setStatus(text, cls){
+  statusBadge.innerText = text;
+  statusBadge.className = `status ${cls}`;
+}
+
+function logEvent(message){
+  const time = new Date().toLocaleTimeString('ru-RU');
+  activityLog.innerHTML = `<div>[${time}] ${message}</div>` + activityLog.innerHTML;
+}
+
+function runDMN(){
+  const type = typeSelect.value;
+  const critical = criticalSelect.value;
+  const cost = parseInt(costInput.value || '0', 10);
+  const warranty = warrantySelect.value;
+
+  let method = 'Исправление';
+  let needApproval = false;
+
+  if (warranty === 'Да' || type === 'Гарантийный') {
+    method = 'Исправление поставщиком';
+  } else if (type === 'Критический' || critical === 'Высокая') {
+    method = 'Утилизация';
+    needApproval = true;
+  } else if (type === 'Внутренний') {
+    method = 'Доработка';
+  }
+
+  if (cost > 30000) needApproval = true;
+
+  methodResult.innerText = method;
+  approvalResult.innerText = needApproval ? 'Да' : 'Нет';
+
+  if (needApproval) {
+    setStatus('На согласовании', 'approval');
+    autoDocs.innerText = 'Создана «Заявка на согласование», задача согласующему';
+    logEvent('DMN: требуется согласование. Созданы заявка и задача согласующему.');
+  } else {
+    setStatus('Подтвержден', 'confirmed');
+    autoDocs.innerText = generateExecutionDocs(method);
+    logEvent('DMN: согласование не требуется. Созданы документы исполнения и регистрация плановых затрат.');
+  }
+}
+
+function generateExecutionDocs(method){
+  if (method === 'Доработка') return 'Заказ на производство (доработка), Регистрация плановых затрат';
+  if (method === 'Утилизация') return 'Списание товаров, Регистрация плановых затрат';
+  if (method === 'Исправление поставщиком') return 'Возврат поставщику, Регистрация плановых затрат';
+  return 'Документ на исправление, Регистрация плановых затрат';
+}
+
+function openApproval(){
+  approvalContext.innerText = `Тип: ${typeSelect.value}; Критичность: ${criticalSelect.value}; Затраты: ${costInput.value} ₽`;
+  document.getElementById('approvalModal').classList.add('show');
+}
+
+function approve(){
+  setStatus('Подтвержден', 'confirmed');
+  autoDocs.innerText = generateExecutionDocs(methodResult.innerText || 'Исправление');
+  logEvent('Согласование: решение утверждено. Процесс передан в исполнение.');
+  document.getElementById('approvalModal').classList.remove('show');
+}
+
+function reject(){
+  setStatus('На доработке', 'rework');
+  logEvent('Согласование: решение отклонено. Документ возвращён инициатору на корректировку.');
+  document.getElementById('approvalModal').classList.remove('show');
+}
+
+function registerActualCosts(){
+  logEvent('Создан документ «Регистрация фактических затрат на брак». Движения по регистрам затрат сформированы.');
+}
+
+function closeProcess(){
+  setStatus('Закрыт', 'closed');
+  logEvent('Документ закрыт. Сформированы отчёты «Анализ брака» и «Затраты по браку».');
+}
+
+const now = new Date();
+detectedAt.innerText = now.toLocaleString('ru-RU');
+logEvent('Документ создан и готов к регистрации.');
+
+defectPhotos.addEventListener('change', (e) => {
+  photoNames.innerHTML = [...e.target.files].map(f => `<span>${f.name}</span>`).join('') || '<span>Файлы не выбраны</span>';
+});
+
+new Chart(document.getElementById('defectChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Внутренний', 'Внешний', 'Критический', 'Гарантийный'],
+    datasets: [{ label: 'Количество случаев', data: [12, 5, 3, 2], backgroundColor: '#2563eb' }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } } }
+});
+</script>
+
+</body>
+</html>
