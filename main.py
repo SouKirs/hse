@@ -27,6 +27,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+import os
 
 class UTF8Middleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -87,7 +88,8 @@ class SeverityEnum(str, enum.Enum):
 
 
 # ---------- DB Setup ----------
-DATABASE_URL = "postgresql://postgres:SouKir666%21@localhost:5432/DTP"
+#DATABASE_URL = "postgresql://postgres:SouKir666%21@localhost:5432/DTP"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
@@ -1073,7 +1075,6 @@ def read_root():
 
 # ---------- Запуск сервера ----------
 if __name__ == "__main__":
-    import os
     import uvicorn
     port = int(os.environ.get("PORT", 8000))  # Render передаст свой порт, локально используем 8000
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
