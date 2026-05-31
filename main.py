@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import os
+import logging
+logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
 class UTF8Middleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -91,7 +93,13 @@ class SeverityEnum(str, enum.Enum):
 #DATABASE_URL = "postgresql://postgres:SouKir666%21@localhost:5432/DTP"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -1077,4 +1085,4 @@ def read_root():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))  # Render передаст свой порт, локально используем 8000
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
