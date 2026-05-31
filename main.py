@@ -61,14 +61,14 @@ class CarBrandEnum(str, enum.Enum):
     BMW = "BMW"
     Mercedes = "Mercedes"
     Audi = "Audi"
-    Kia = "Kia"
+    other = "Другое"
 
 class CarColorEnum(str, enum.Enum):
     Black = "Черный"
     White = "Белый"
     Red = "Красный"
     Blue = "Синий"
-    Green = "Зеленый"
+    other = "Другое"
 
 class DrivingStyleEnum(str, enum.Enum):
     aggressive = "Агрессивный"
@@ -629,7 +629,7 @@ def _calc_driving_style(total: int, dangerous: int, medium: int, soft: int) -> s
 
     # --- веса (ключевая идея) ---
     weighted_score = (soft * 1) + (medium * 2) + (dangerous * 4)
-    aggression_index = weighted_score / total
+    aggression_index = weighted_score / total 
 
     # --- ЛОГИКА ---
 
@@ -866,7 +866,7 @@ def get_stats_summary(
                     continue
 
                 distance = float(getattr(t, "total_distance", 0.0) or 0.0)
-                distance_by_day[day_index] += distance
+                distance_by_day[day_index] += (distance + 1)
 
             # --- 3. нормализация (САМОЕ ВАЖНОЕ) ---
             for i in range(days):
