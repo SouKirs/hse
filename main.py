@@ -618,10 +618,6 @@ def get_daily_stats(user_id: PyUUID = Query(...), date: datetime.date = Query(..
 
 from typing import List, Dict, Optional
 
-def startup() -> None:
-    Base.metadata.create_all(bind=engine)
-
-
 def _as_str(value) -> str:
     return value.value if hasattr(value, "value") else str(value)
 
