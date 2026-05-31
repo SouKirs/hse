@@ -205,7 +205,7 @@ COLOR_MAP = {
     "белый": CarColorEnum.White,
     "красный": CarColorEnum.Red,
     "синий": CarColorEnum.Blue,
-    "зеленый": CarColorEnum.Green,
+    "зеленый": CarColorEnum.other,
 }
 
 class RegisterUserRaw(BaseModel):
