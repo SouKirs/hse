@@ -61,14 +61,14 @@ class CarBrandEnum(str, enum.Enum):
     BMW = "BMW"
     Mercedes = "Mercedes"
     Audi = "Audi"
-    other = "Другое"
+    Kia = "Kia"
 
 class CarColorEnum(str, enum.Enum):
     Black = "Черный"
     White = "Белый"
     Red = "Красный"
     Blue = "Синий"
-    other = "Другое"
+    Green = "Зеленый"
 
 class DrivingStyleEnum(str, enum.Enum):
     aggressive = "Агрессивный"
@@ -205,7 +205,7 @@ COLOR_MAP = {
     "белый": CarColorEnum.White,
     "красный": CarColorEnum.Red,
     "синий": CarColorEnum.Blue,
-    "зеленый": CarColorEnum.other,
+    "зеленый": CarColorEnum.Green,
 }
 
 class RegisterUserRaw(BaseModel):
@@ -629,16 +629,16 @@ def _calc_driving_style(total: int, dangerous: int, medium: int, soft: int) -> s
 
     # --- веса (ключевая идея) ---
     weighted_score = (soft * 1) + (medium * 2) + (dangerous * 4)
-    aggression_index = weighted_score / total 
+    aggression_index = weighted_score / total
 
     # --- ЛОГИКА ---
 
     # 🔴 Агрессивный
-    if dangerous_ratio >= 0.10 or aggression_index >= 2.5:
+    if dangerous_ratio >= 0.25 or aggression_index >= 2.5:
         return DrivingStyleEnum.aggressive.value
 
     # 🟡 Динамичный
-    if dangerous_ratio >= 0.05 or aggression_index >= 1.8:
+    if dangerous_ratio >= 0.15 or aggression_index >= 1.8:
         return DrivingStyleEnum.dynamic.value
 
     # 🟢 Плавный
@@ -769,7 +769,7 @@ def get_stats_summary(
             return slope, intercept, max(0.0, min(1.0, r2))
 
 
-        def _is_slope_stable(values: Sequence[float], slope: float, min_effect_sigma: float = 0.1) -> bool:
+        def _is_slope_stable(values: Sequence[float], slope: float, min_effect_sigma: float = 0.5) -> bool:
             if len(values) < 2:
                 return True
 
